@@ -1,0 +1,15 @@
+
+{ 
+"TR":2.2, 
+"RS_FWHM":5,
+"LOW_PASS":0.1,
+"HIGH_PASS":0.01,
+"NVOLS":199,
+"WD":"/home/share/LeftHand/LHconnectivity/Stockholm",
+"NJOBS":10,
+"CROP_SIZE":"0 -1 0 -1 40 170",
+"TEST_SUBJECT":"sub-LH1003",
+"MNI_FILENAME":"/usr/local/fsl/data/standard/MNI152_T1_2mm.nii.gz",
+"MNI_BRAIN_FILENAME":"/usr/local/fsl/data/standard/MNI152_T1_2mm_brain.nii.gz"
+}
+
