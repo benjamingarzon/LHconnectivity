@@ -21,7 +21,7 @@ os.chdir(WD)
 subjects = glob.glob('sub-*')
 
 # get average template
-Parallel(n_jobs = NJOBS)(delayed(average_structurals)(WD, subject, CROP_Z_SIZE)) 
+Parallel(n_jobs = NJOBS)(delayed(average_structurals)(WD, subject, CROP_SIZE)) 
     for subject in subjects) 
 
 # register template

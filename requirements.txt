@@ -2,3 +2,10 @@ numpy
 scipy
 matplotlib
 pandas
+scikit-learn
+nilearn
+nipype
+pytest
+
+conda install --channel conda-forge numpy scipy nilearn nipype matplotlib pytest pandas
+

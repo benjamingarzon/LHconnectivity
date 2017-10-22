@@ -1,18 +1,18 @@
 PLAN
 
   WORKDIR = /home/share/LeftHand/LHConnectivity
-# change events by data
 
+# confounds in aroma or in niftimasker
 ** organize_data_Stockholm.sh
 **  organize_data_Berlin.sh
- - Rename data as BIDS
+x - Rename data as BIDS
 
 ** do_preprocessing.py  
- - Average all T1s for each subject longitudinal 
- - Run FIX or AROMA? 
- - Register 
- - Get confounds  
-   - Friston 24
+x - Average all T1s for each subject longitudinal 
+x - Run FIX or AROMA? 
+x - Register 
+x - Get confounds  
+x - Friston 24
    - do I need to remove white matter and CSF signal ?  
 
 
@@ -21,17 +21,18 @@ PLAN
  clean intermediate files
 
 
- - Get striatum parcellation - Yeo --
+x - Get striatum parcellation - Yeo --
 
  - Get individual ROIs and create parcellation file
- create_rois.sh
+x create_rois.sh
    - from localizer
    - from neurosynth? ICA, anatomical 
    - from contrast map - early vs late : to find e.g. PFC
 
  - Extract connectivity data matrices 
   - small smoothing
-  - which estimator ? Ridge seems good! / Ledoit_Wolf
+x  - which estimator ? Ridge seems good! / Ledoit_Wolf
+x  - output a few estimators : full / ledoit
  
  - Cluster trajectories
  # do analysis

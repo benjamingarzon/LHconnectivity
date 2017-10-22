@@ -4,7 +4,6 @@ from nilearn.input_data import NiftiLabelsMasker
 from scipy import linalg
 from scipy.spatial.distance import squareform
 import numpy as np
-import .parameters
 
 def find_labels(WD, TR, nvols):
     """
@@ -44,7 +43,8 @@ def find_labels(WD, TR, nvols):
     return(conditions)
 
 
-def get_fc(WD, TR, label, atlas_filename, confounds_filename):
+def get_fc(WD, TR, label, atlas_filename, confounds_filename, FWHM, LOW_PASS, 
+    HIGH_PASS, TYPE):
     """
     Extract connectivity matrix given atlas and processed fMRI data.
     """
@@ -68,8 +68,11 @@ def get_fc(WD, TR, label, atlas_filename, confounds_filename):
         conditions = find_labels(WD, TR, nvols)
         condition_mask = conditions['label'] == label
         X = X[condition_mask]
-    lw_cov_, _ = ledoit_wolf(X)
-    fc_mat = lw_cov_
+    if TYPE == 'lw':
+        fc_mat, _ = ledoit_wolf(X)
+    if TYPE == 'full':
+        fc_mat = np.corrcoef(X)
+
     np.fill_diagonal(fc_mat, 0)
     fc = squareform(fc_mat)
 
