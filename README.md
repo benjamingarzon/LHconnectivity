@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ## shablona
 [![Build Status](https://travis-ci.org/uwescience/shablona.svg?branch=master)](https://travis-ci.org/uwescience/shablona)
 
@@ -507,3 +508,7 @@ your needs.
 
 At this point, make another commit, and continue to develop your own code based
 on this template.
+=======
+# LHconnectivity
+Python pipeline for fMRI preprocessing and connectivity analysis for longitudinal data
+>>>>>>> 5c856390aecea748aa2668273327dfb245333da1
