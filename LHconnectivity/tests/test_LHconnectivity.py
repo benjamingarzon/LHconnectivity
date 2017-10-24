@@ -20,7 +20,7 @@ HIGH_PASS = parameters['HIGH_PASS']
 FULL_FC_FILENAME = parameters['FULL_FC_FILENAME']
 LW_FC_FILENAME = parameters['LW_FC_FILENAME']
 AGGR_TYPE = parameters['AGGR_TYPE']
-
+func_mni_filename = parameters['FUNC_MNI_FILENAME']
 task = 'task-localizer'
 suffix = 'lr'
 fsf_file = parameters['FSF_FILE']
@@ -43,14 +43,14 @@ label = 'all'
 #def test_register_funcs():
 #  pf.register_funcs(WD, subject, task, TR, mni)
 
-def test_run_aroma():
-   pf.run_aroma(WD, subject, task, TR, AROMA_PATH, AGGR_TYPE, mni)
+#def test_run_aroma():
+#   pf.run_aroma(WD, subject, task, TR, AROMA_PATH, AGGR_TYPE, mni)
 
 def test_get_fc_matrices():
-   pf.get_fc_matrices(WD, subject, task, atlas_filename, TR, label, FWHM, LOW_PASS, 
-   HIGH_PASS, 'lw', LW_FC_FILENAME)
-   pf.get_fc_matrices(WD, subject, task, atlas_filename, TR, label, FWHM, LOW_PASS, 
-   HIGH_PASS, 'full', FULL_FC_FILENAME)
+   pf.get_fc_matrices(WD, [subject], task, atlas_filename, TR, label, FWHM, LOW_PASS, 
+   HIGH_PASS, 'lw', func_mni_filename, LW_FC_FILENAME)
+   pf.get_fc_matrices(WD, [subject], task, atlas_filename, TR, label, FWHM, LOW_PASS, 
+   HIGH_PASS, 'full', func_mni_filename, FULL_FC_FILENAME)
 
 def test_process_fMRI():
    pf.process_fMRI(WD, subject, task, suffix, fsf_file)
@@ -61,5 +61,5 @@ def test_process_fMRI():
 #test_motion_correction()
 #test_register_funcs()
 #test_run_aroma()
-#test_process_fMRI()
-#test_get_fc_matrices()
+test_process_fMRI()
+test_get_fc_matrices()

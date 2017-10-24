@@ -6,6 +6,7 @@ scikit-learn
 nilearn
 nipype
 pytest
+joblib
 
-conda install --channel conda-forge numpy scipy nilearn nipype matplotlib pytest pandas
+conda install --channel conda-forge numpy scipy nilearn nipype matplotlib pytest pandas joblib
 

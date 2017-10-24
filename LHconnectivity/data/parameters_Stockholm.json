@@ -16,6 +16,7 @@
 "ATLAS_FILENAME":"/home/share/LeftHand/fMRI/parcellations/atlas_lefthand.nii.gz",
 "FULL_FC_FILENAME":"/home/share/LeftHand/LHconnectivity/Stockholm/full_fc.csv",
 "LW_FC_FILENAME":"/home/share/LeftHand/LHconnectivity/Stockholm/lw_fc.csv",
-"AGGR_TYPE":"nonaggr"
+"AGGR_TYPE":"nonaggr",
+"FUNC_MNI_FILENAME":"fMRI_denoised_mni.nii.gz"
 }
 

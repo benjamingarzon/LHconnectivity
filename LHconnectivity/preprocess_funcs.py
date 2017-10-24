@@ -74,7 +74,8 @@ def motion_correction(WD, subject, task, TR):
 
         # Calculate Friston 24 parameters
         if not os.path.exists('fMRI_mcf_fr24.par'):
-            pars = pd.read_csv('fMRI_mcf.par', delim_whitespace = True).values
+            pars = pd.read_csv('fMRI_mcf.par', delim_whitespace = True, 
+                header = None).values
             pars_diff = np.diff(pars, axis = 0)
             pars_diff = np.concatenate((np.zeros(( 1, pars.shape[1])), 
                 pars_diff), axis = 0)
@@ -244,15 +245,6 @@ def run_aroma(WD, subject, task, TR, AROMA_PATH, AGGR_TYPE, mni):
             field_file = os.path.join(WD_template, 'warps.nii.gz'), 
             out_file = 'fMRI_denoised_mni.nii.gz', 
             premat = 'func2struct.mat')
-        
-#        aroma = fsl.ICA_AROMA()
-#        aroma.inputs.in_file = 'fMRI_mcf.nii.gz'
-#        aroma.inputs.mat_file = 'func2struct.mat'
-#        aroma.inputs.fnirt_warp_file = os.path.join(WD_template, 'warps.nii.gz')
-#        aroma.inputs.motion_parameters = 'fMRI_mcf.par'
-#        aroma.inputs.mask = 'brain_mask.nii.gz'
-#        aroma.inputs.denoise_type = 'both'
-#        aroma.inputs.out_dir = 'ICA_testout'
 
     sessions, runs, paths = iterate_sessions_runs(WD, subject, task)
     WD_template = os.path.join(WD, subject, 'average/anat')
@@ -269,7 +261,7 @@ def process_fMRI(WD, subject, task, suffix, fsf_file):
     Do the processing for fMRI data.
     """
 
-    def do_process_fMRI(WD, WD_template, fsf_file):
+    def do_process_fMRI(WD, events_dir, WD_template, fsf_file):
 
         # loop over EVs instead
         os.chdir(WD)        
@@ -278,12 +270,12 @@ def process_fMRI(WD, subject, task, suffix, fsf_file):
             'fMRI.fsf'))
         os.system("sed -i 's @STRUCTURAL_BRAIN %s ' %s"%
             (os.path.join(WD_template, 'structural_brain.nii.gz'), 'fMRI.fsf'))
-        os.system("sed -i 's @EV1 %s %s"%
-            (os.path.abspath('EV1.csv'), 'fMRI.fsf'))
-        os.system("sed -i 's @EV2 %s %s"%
-            (os.path.abspath('EV2.csv'), 'fMRI.fsf'))
-        os.system("sed -i 's @ANALYSIS %s %s"%
-            (os.path.join(os.getcwd(), 'analysis'), 'fMRI.fsf'))
+        os.system("sed -i 's @EV1 %s ' %s"%
+            (os.path.join(events_dir, 'EV1.csv'), 'fMRI.fsf'))
+        os.system("sed -i 's @EV2 %s ' %s"%
+            (os.path.join(events_dir, 'EV2.csv'), 'fMRI.fsf'))
+        os.system("sed -i 's @ANALYSIS %s ' %s"%
+            (os.path.join(WD, 'analysis'), 'fMRI.fsf'))
 
         os.system('feat fMRI.fsf')
 
@@ -292,34 +284,52 @@ def process_fMRI(WD, subject, task, suffix, fsf_file):
 
     for session, run, path in zip(sessions, runs, paths):
         os.chdir(os.path.join(WD, subject))
-        proc_dir = os.path.join(session, 'funcproc_' + task + '-' + suffix, run)
+#        proc_dir = os.path.join(session, 'funcproc_' + task + '-' + suffix, run)
+        proc_dir = os.path.join(WD, subject, session, 'funcproc_' + task + 
+            '-' + suffix, run)  
         if not os.path.exists(proc_dir):
             os.makedirs(proc_dir)            
         link = os.path.join(proc_dir, 'fMRI.nii.gz')
         if os.path.exists(link):
             os.remove(link)        
         os.symlink(os.path.abspath(path), link) 
-        do_process_fMRI(proc_dir, WD_template, fsf_file)
+        events_dir = os.path.join(WD, subject, session, 'func', subject + 
+            '_' + task +  '_' + run + '_events') 
+        do_process_fMRI(proc_dir, events_dir, WD_template, fsf_file)
 
 
-def get_fc_matrices(WD, subject, task, atlas_filename, TR, label, FWHM, LOW_PASS, 
-    HIGH_PASS, TYPE, output_filename):
+def get_fc_matrices(WD, subjects, task, atlas_filename, TR, label, FWHM, 
+    LOW_PASS, HIGH_PASS, TYPE, func_mni_filename, output_filename, NJOBS):
     """
     Compute FC matrices for each run. 
     """
-    sessions, runs, paths = iterate_sessions_runs(WD, subject, task)
-    results = []
-    for session, run, path in zip(sessions, runs, paths):
-        os.chdir(os.path.join(WD, subject))
 
-        proc_dir = os.path.join(session, 'funcproc_' + task, run)
-        confounds_filename = 'fMRI_mcf_fr24.par'
-        fc = get_fc(proc_dir, TR, label, atlas_filename, confounds_filename, 
-        FWHM, LOW_PASS, HIGH_PASS, TYPE)
-        fd = np.mean(pd.read_csv(os.path.join(proc_dir, 'fd.txt')).values)
+    def do_get_fc_matrices():
+        sessions, runs, paths = iterate_sessions_runs(WD, subject, task)
+        results = []
 
-        results.append((subject, int(session), int(run), fd) + tuple(fc))
-  
+        for session, run, path in zip(sessions, runs, paths):
+            os.chdir(os.path.join(WD, subject))
+
+            proc_dir = os.path.join(session, 'funcproc_' + task, run)
+            confounds_filename = 'fMRI_mcf_fr24.par'
+            confounds_filename = 'fMRI_mcf.par'
+            fc = get_fc(proc_dir, func_mni_filename, TR, label, atlas_filename, 
+                confounds_filename, FWHM, LOW_PASS, HIGH_PASS, TYPE)
+            fd = np.mean(pd.read_csv(os.path.join(WD, subject, proc_dir, 
+                'fd.txt')).values)
+
+            results.append((subject, int(session.split('-')[1]), 
+                int(run.split('-')[1]), fd) + tuple(fc))
+
+        return(results)
+
+    results = Parallel(n_jobs = NJOBS)(delayed(do_get_fc_matrices)(WD, subject, 
+    task, atlas_filename, TR, label, FWHM, LOW_PASS, HIGH_PASS, TYPE, 
+    func_mni_filename)
+    for subject in subjects) 
+
+    results = [item for sublist in results for item in sublist]
     results = pd.DataFrame(results, columns=['SUBJECT','SESSION','RUN','FD'] + 
          [ 'fc_%03d'%(i+1)  for i in range(len(fc)) ])
     results.sort_values(by = ['SUBJECT', 'SESSION', 'RUN'], inplace = True)

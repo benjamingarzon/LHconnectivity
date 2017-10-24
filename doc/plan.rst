@@ -1,6 +1,11 @@
 PLAN
 
-  WORKDIR = /home/share/LeftHand/LHConnectivity
+WORKDIR = /home/share/LeftHand/LHConnectivity
+
+COMMBINATIONS FOR OUTPUT FILES
+connectivity: full/lw
+process: aromaaggr/aromanoaggr/noaroma
+label: rest/all
 
 # confounds in aroma or in niftimasker
 ** organize_data_Stockholm.sh
@@ -17,7 +22,7 @@ x - Friston 24
 
 
 ** Estimate fMRI task data
- parallelize?
+x - parallelize?
  clean intermediate files
 
 
