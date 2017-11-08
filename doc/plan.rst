@@ -1,8 +1,10 @@
 PLAN
 
+
+
 WORKDIR = /home/share/LeftHand/LHConnectivity
 
-COMMBINATIONS FOR OUTPUT FILES
+COMBINATIONS FOR OUTPUT FILES
 connectivity: full/lw
 process: aromaaggr/aromanoaggr/noaroma
 label: rest/all
@@ -23,7 +25,7 @@ x - Friston 24
 
 ** Estimate fMRI task data
 x - parallelize?
- clean intermediate files
+x - clean intermediate files
 
 
 x - Get striatum parcellation - Yeo --
@@ -44,6 +46,9 @@ x  - output a few estimators : full / ledoit
 
  - Extract substantia nigra, use MBST?
 
+
+- Remove dicoms from repeated acquistitions
+x - clean_dicom_Berlin. 
 
 QUESTIONS
  - How does the connectivity pattern predict behaviour?  

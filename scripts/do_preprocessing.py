@@ -12,7 +12,7 @@ with open(PARAMS_FILE) as data_file:
     parameters = json.load(data_file)
 
 WD = parameters['WD']
-NJOBS = 5#parameters['NJOBS']
+NJOBS = 10#parameters['NJOBS']
 CROP_SIZE = parameters['CROP_SIZE']
 TR = parameters['TR']
 mni = (parameters['MNI_FILENAME'], parameters['MNI_BRAIN_FILENAME'])
@@ -31,7 +31,8 @@ atlas_filename = parameters['ATLAS_FILENAME']
 label = 'all'
 
 os.chdir(WD)
-subjects = glob.glob('sub-LH100[1-5]')
+#subjects = glob.glob('sub-LH100[1-5]')
+subjects = glob.glob('sub-LH*')
 
 # get average template
 Parallel(n_jobs = NJOBS)(delayed(pf.average_structurals)(WD, subject, CROP_SIZE) 
@@ -56,17 +57,17 @@ Parallel(n_jobs = NJOBS)(delayed(pf.run_aroma)(WD, subject, task, TR,
     for subject in subjects) 
 
 # compute matrices
-pf.get_fc_matrices(WD, subject, task, 
+pf.get_fc_matrices(WD, subjects, task, 
     atlas_filename, TR, label, FWHM, LOW_PASS, HIGH_PASS, 'lw', 
     func_mni_filename, LW_FC_FILENAME, NJOBS)
 
-pf.get_fc_matrices(WD, subject, task, 
+pf.get_fc_matrices(WD, subjects, task, 
     atlas_filename, TR, label, FWHM, LOW_PASS, HIGH_PASS, 'full', 
     func_mni_filename, FULL_FC_FILENAME, NJOBS)
 
 # process fMRI task data
 Parallel(n_jobs = NJOBS)(delayed(pf.process_fMRI)(WD, subject, task, suffix, 
-    fsf_file)
+    fsf_file, mni)
     for subject in subjects) 
 
 

@@ -9,6 +9,7 @@ from scipy.spatial.distance import squareform, pdist
 from scipy.stats import pearsonr
 from LHconnectivity import get_fc
 import pandas as pd
+from joblib import Parallel, delayed
 
 
 def average_structurals(WD, subject, CROP_SIZE):
@@ -21,29 +22,32 @@ def average_structurals(WD, subject, CROP_SIZE):
     if not os.path.exists('average/anat'):
         os.makedirs('average/anat')
 
-    structural_files = glob.glob('sess*/anat/*T1w.nii.gz')
-    for structural_file in structural_files: 
-        resampled_structural_file = structural_file.split('.')[0] + \
-            '_1mm.nii.gz'
-        flt = fsl.FLIRT()
-        flt.run(in_file = structural_file, 
-                reference = structural_file,
-                interp = 'spline', 
-                apply_isoxfm = 1,
-                out_file = resampled_structural_file,
-                out_matrix_file = 'tmp.mat')
-        os.remove('tmp.mat')
-        os.system('fslroi ' + resampled_structural_file + ' ' +
-            resampled_structural_file + ' ' + CROP_SIZE)
+    if not os.path.exists('average/anat/template.nii.gz'):
+
+        structural_files = glob.glob('sess*/anat/*T1w.nii.gz')
+        for structural_file in structural_files: 
+            resampled_structural_file = structural_file.split('.')[0] + \
+                '_1mm.nii.gz'
+            flt = fsl.FLIRT()
+            flt.run(in_file = structural_file, 
+                    reference = structural_file,
+                    interp = 'trilinear', 
+                    apply_isoxfm = 1,
+                    out_file = resampled_structural_file,
+                    out_matrix_file = 'tmp.mat')
+            os.remove('tmp.mat')
+            os.system('fslroi ' + resampled_structural_file + ' ' +
+                resampled_structural_file + ' ' + CROP_SIZE)
+            os.system('fslmaths ' + resampled_structural_file + ' -thr 0 ' +
+                resampled_structural_file)
     
-    os.system('mri_robust_template --mov sess*/anat/*T1w*_1mm.nii.gz ' + 
-        '--template average/anat/template.nii.gz --satit')
+        os.system('mri_robust_template --mov sess*/anat/*T1w*_1mm.nii.gz ' + 
+            '--template average/anat/template.nii.gz --satit --iscale')
     
-    # clean up
-    os.system('rm sess*/anat/*T1w*_1mm.nii.gz ')    
+        # clean up
+        os.system('rm sess*/anat/*T1w*_1mm.nii.gz')    
 
 def motion_correction(WD, subject, task, TR):
-
     """
     Do motion correction and get parameters. 
     """
@@ -139,7 +143,6 @@ def register_template(WD, structural_filename, mni):
 
 
 def register_funcs(WD, subject, task, TR, mni):
-
     """
     Compute and apply registrations to fMRI data. 
     """
@@ -187,7 +190,6 @@ def register_funcs(WD, subject, task, TR, mni):
 
 
 def iterate_sessions_runs(WD, subject, task):
-   
     """
     Return a list with scans for all sessions and runs of the subject.
     """
@@ -212,7 +214,6 @@ def iterate_sessions_runs(WD, subject, task):
 
 
 def run_aroma(WD, subject, task, TR, AROMA_PATH, AGGR_TYPE, mni):
-
     """
     Run aroma for denoising. 
     """
@@ -245,7 +246,9 @@ def run_aroma(WD, subject, task, TR, AROMA_PATH, AGGR_TYPE, mni):
             field_file = os.path.join(WD_template, 'warps.nii.gz'), 
             out_file = 'fMRI_denoised_mni.nii.gz', 
             premat = 'func2struct.mat')
-
+        shutil.rmtree('aroma')
+        os.unlink(link)
+        
     sessions, runs, paths = iterate_sessions_runs(WD, subject, task)
     WD_template = os.path.join(WD, subject, 'average/anat')
 
@@ -256,12 +259,14 @@ def run_aroma(WD, subject, task, TR, AROMA_PATH, AGGR_TYPE, mni):
         do_run_aroma(proc_dir, WD_template)
 
 
-def process_fMRI(WD, subject, task, suffix, fsf_file):
+def process_fMRI(WD, subject, task, suffix, fsf_file, mni):
     """
     Do the processing for fMRI data.
     """
 
-    def do_process_fMRI(WD, events_dir, WD_template, fsf_file):
+    def do_process_fMRI(WD, events_dir, WD_template, fsf_file, mni):
+
+        mni_filename = mni[0]
 
         # loop over EVs instead
         os.chdir(WD)        
@@ -279,12 +284,36 @@ def process_fMRI(WD, subject, task, suffix, fsf_file):
 
         os.system('feat fMRI.fsf')
 
+        # warp the contrasts to MNI
+
+        tstats = glob.glob('analysis.feat/stats/tstat*')
+        zstats = glob.glob('analysis.feat/stats/zstat*')
+        cope = glob.glob('analysis.feat/stats/cope*')
+        varcope = glob.glob('analysis.feat/stats/varcope*')
+
+        maps = tstats + zstats + cope + varcope
+
+        for mymap in maps:
+            aw = fsl.ApplyWarp() 
+            aw.run(in_file = mymap,
+                ref_file = mni_filename,
+                field_file = os.path.join(WD_template, 'warps.nii.gz'), #'analysis.feat/reg/example_func2standard_warp.nii.gz', 
+                out_file = mymap, 
+                premat = 'analysis.feat/reg/example_func2highres.mat')
+
+        os.system('mv analysis.feat/stats/tstat* .')
+        os.system('mv analysis.feat/stats/zstat* .')
+        os.system('mv analysis.feat/stats/cope* .')
+        os.system('mv analysis.feat/stats/varcope* .')
+
+        # remove analysis dir
+        shutil.rmtree('analysis.feat')
+
     sessions, runs, paths = iterate_sessions_runs(WD, subject, task)    
     WD_template = os.path.join(WD, subject, 'average/anat')
 
     for session, run, path in zip(sessions, runs, paths):
         os.chdir(os.path.join(WD, subject))
-#        proc_dir = os.path.join(session, 'funcproc_' + task + '-' + suffix, run)
         proc_dir = os.path.join(WD, subject, session, 'funcproc_' + task + 
             '-' + suffix, run)  
         if not os.path.exists(proc_dir):
@@ -295,34 +324,37 @@ def process_fMRI(WD, subject, task, suffix, fsf_file):
         os.symlink(os.path.abspath(path), link) 
         events_dir = os.path.join(WD, subject, session, 'func', subject + 
             '_' + task +  '_' + run + '_events') 
-        do_process_fMRI(proc_dir, events_dir, WD_template, fsf_file)
+        do_process_fMRI(proc_dir, events_dir, WD_template, fsf_file, mni)
+
+
+def do_get_fc_matrices(WD, subject, task, atlas_filename, TR, label, FWHM, 
+    LOW_PASS, HIGH_PASS, TYPE, func_mni_filename):
+    """
+    Compute FC matrices for each run. 
+    """
+    sessions, runs, paths = iterate_sessions_runs(WD, subject, task)
+    results = []
+
+    for session, run, path in zip(sessions, runs, paths):
+        os.chdir(os.path.join(WD, subject))
+        proc_dir = os.path.join(session, 'funcproc_' + task, run)
+        confounds_filename = 'fMRI_mcf_fr24.par'
+        confounds_filename = 'fMRI_mcf.par'
+        fc = get_fc(proc_dir, func_mni_filename, TR, label, atlas_filename, 
+            confounds_filename, FWHM, LOW_PASS, HIGH_PASS, TYPE)
+        fd = np.mean(pd.read_csv(os.path.join(WD, subject, proc_dir, 
+            'fd.txt')).values)
+        results.append((subject, int(session.split('-')[1]), 
+            int(run.split('-')[1]), fd) + tuple(fc))
+
+    return(results)
 
 
 def get_fc_matrices(WD, subjects, task, atlas_filename, TR, label, FWHM, 
     LOW_PASS, HIGH_PASS, TYPE, func_mni_filename, output_filename, NJOBS):
     """
-    Compute FC matrices for each run. 
+    Compute FC matrices for each run for all subjects. 
     """
-
-    def do_get_fc_matrices():
-        sessions, runs, paths = iterate_sessions_runs(WD, subject, task)
-        results = []
-
-        for session, run, path in zip(sessions, runs, paths):
-            os.chdir(os.path.join(WD, subject))
-
-            proc_dir = os.path.join(session, 'funcproc_' + task, run)
-            confounds_filename = 'fMRI_mcf_fr24.par'
-            confounds_filename = 'fMRI_mcf.par'
-            fc = get_fc(proc_dir, func_mni_filename, TR, label, atlas_filename, 
-                confounds_filename, FWHM, LOW_PASS, HIGH_PASS, TYPE)
-            fd = np.mean(pd.read_csv(os.path.join(WD, subject, proc_dir, 
-                'fd.txt')).values)
-
-            results.append((subject, int(session.split('-')[1]), 
-                int(run.split('-')[1]), fd) + tuple(fc))
-
-        return(results)
 
     results = Parallel(n_jobs = NJOBS)(delayed(do_get_fc_matrices)(WD, subject, 
     task, atlas_filename, TR, label, FWHM, LOW_PASS, HIGH_PASS, TYPE, 
@@ -330,8 +362,9 @@ def get_fc_matrices(WD, subjects, task, atlas_filename, TR, label, FWHM,
     for subject in subjects) 
 
     results = [item for sublist in results for item in sublist]
-    results = pd.DataFrame(results, columns=['SUBJECT','SESSION','RUN','FD'] + 
-         [ 'fc_%03d'%(i+1)  for i in range(len(fc)) ])
+    results = pd.DataFrame(results)
+    results.columns = ['SUBJECT','SESSION','RUN','FD'] + \
+        [ 'fc_%03d'%(i+1)  for i in range(results.shape[1] - 4) ]
     results.sort_values(by = ['SUBJECT', 'SESSION', 'RUN'], inplace = True)
     results.to_csv(output_filename, index = False)
 

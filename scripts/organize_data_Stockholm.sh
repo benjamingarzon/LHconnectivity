@@ -11,7 +11,7 @@ NVOLS=199
 TASK=localizer
 # these subjects need to be renamed
 RENAMELIST="LH2002.2 LH2003.4 LH2005.4 LH2007.2 LH2008.2 LH2009.4 LH2011.4 \ 
-LH2013.4 LH2014.2 LH2015.2 LH2017.4 LH2018.2"
+LH2012.2 LH2013.4 LH2014.2 LH2015.2 LH2017.4 LH2018.2"
 
 # rename structural folders that were named differently for the structural
 # and functional data 
@@ -20,6 +20,8 @@ if [ "$OVERWRITE" -eq "1" ]; then
 rm -r $WD
 mkdir $WD
 mkdir $WD/logs
+else
+rm $WD/logs/* 
 fi
 
 cd $FUNC_DIR
