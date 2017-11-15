@@ -1,18 +1,19 @@
 from sklearn.covariance import ledoit_wolf
-import os
+import os, shutil
 from nilearn.input_data import NiftiLabelsMasker
 from scipy import linalg
 from scipy.spatial.distance import squareform, pdist
 import numpy as np
+import pandas as pd
 
 def find_labels(WD, TR, nvols):
     """
     Get labels from EV files.
     """
 
-    left_onsets = pd.read_csv(WD + 'EV1.csv', sep = ' ', 
+    left_onsets = pd.read_csv(os.path.join(WD, 'EV1.csv'), sep = ' ', 
         names = ['onset', 'duration', 'value' ] )
-    right_onsets = pd.read_csv(WD + 'EV2.csv', sep = ' ', 
+    right_onsets = pd.read_csv(os.path.join(WD, 'EV2.csv'), sep = ' ', 
         names = ['onset', 'duration', 'value' ] )
 
     times = np.arange(nvols)*TR
@@ -44,7 +45,7 @@ def find_labels(WD, TR, nvols):
 
 
 def get_fc(WD, func_mni_filename, TR, label, atlas_filename, confounds_filename, FWHM, LOW_PASS, 
-    HIGH_PASS, TYPE):
+    HIGH_PASS, TYPE, events_dir):
     """
     Extract connectivity matrix given atlas and processed fMRI data.
     """
@@ -63,19 +64,23 @@ def get_fc(WD, func_mni_filename, TR, label, atlas_filename, confounds_filename,
 
     X = masker.fit_transform(func_mni_filename, confounds = confounds_filename)
     nvols = X.shape[0]
-    if label != 'all':
-        conditions = find_labels(WD, TR, nvols)
-        condition_mask = conditions['label'] == label
-        X = X[condition_mask]
-    if TYPE == 'lw':
-        fc_mat, _ = ledoit_wolf(X)
-        np.fill_diagonal(fc_mat, 0)
-        fc = squareform(fc_mat)
 
-    if TYPE == 'full':
-#        fc_mat = pdist(1 - np.corrcoef(X.T)
-        fc = pdist(X.T, metric = 'correlation')
+    if os.path.exists(os.path.join(events_dir, 'EV1.csv')):
 
+        if label != 'all':
+            conditions = find_labels(events_dir, TR, nvols)
+            condition_mask = conditions['label'] == label
+            X = X[condition_mask]
+        if TYPE == 'lw':
+            fc_mat, _ = ledoit_wolf(X)
+            np.fill_diagonal(fc_mat, 0)
+            fc = squareform(fc_mat)
+
+        if TYPE == 'full':
+            fc = pdist(X.T, metric = 'correlation')
+        shutil.rmtree('nilearn_cache')
+    else: 
+        fc = ()
     return(fc)
 
 

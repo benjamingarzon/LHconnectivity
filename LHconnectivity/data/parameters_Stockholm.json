@@ -4,7 +4,6 @@
 "RS_FWHM":5,
 "LOW_PASS":0.1,
 "HIGH_PASS":0.01,
-"NVOLS":199,
 "WD":"/home/share/LeftHand/LHconnectivity/Stockholm",
 "NJOBS":10,
 "CROP_SIZE":"0 -1 0 -1 40 170",
@@ -14,9 +13,13 @@
 "AROMA_PATH":"/home/ALDRECENTRUM/benjamin.garzon/Software/ICA-AROMA/ICA_AROMA.py",
 "FSF_FILE":"/home/ALDRECENTRUM/benjamin.garzon/Software/LeftHand/LHconnectivity/LHconnectivity/data/Stockholm_fMRI.fsf",
 "ATLAS_FILENAME":"/home/share/LeftHand/fMRI/parcellations/atlas_lefthand.nii.gz",
-"FULL_FC_FILENAME":"/home/share/LeftHand/LHconnectivity/Stockholm/full_fc.csv",
-"LW_FC_FILENAME":"/home/share/LeftHand/LHconnectivity/Stockholm/lw_fc.csv",
+"FULL_FC_FILENAME":"/home/share/LeftHand/LHconnectivity/Stockholm/full_fc_rest.csv",
+"LW_FC_FILENAME":"/home/share/LeftHand/LHconnectivity/Stockholm/lw_fc_rest.csv",
 "AGGR_TYPE":"nonaggr",
-"FUNC_MNI_FILENAME":"fMRI_denoised_mni.nii.gz"
+"FUNC_MNI_FILENAME":"fMRI_mni.nii.gz",
+"TASK":"task-localizer",
+"REST":"task-localizer",
+"SUFFIX":"lr",
+"LABEL":"rest"
 }
 

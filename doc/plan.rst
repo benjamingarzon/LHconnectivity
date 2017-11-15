@@ -1,13 +1,17 @@
 PLAN
 
 
-
 WORKDIR = /home/share/LeftHand/LHConnectivity
 
 COMBINATIONS FOR OUTPUT FILES
 connectivity: full/lw
 process: aromaaggr/aromanoaggr/noaroma
 label: rest/all
+
+/ change do preprocessing to get any file
+am I using NVOLS / no
+alter .fsf and check crop size
+
 
 # confounds in aroma or in niftimasker
 ** organize_data_Stockholm.sh

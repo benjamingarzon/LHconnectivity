@@ -222,32 +222,34 @@ def run_aroma(WD, subject, task, TR, AROMA_PATH, AGGR_TYPE, mni):
 
     def do_run_aroma(WD, WD_template):
         os.chdir(WD)
-        command = 'python ' + AROMA_PATH + \
-            ' -i ' + os.path.abspath('fMRI_mcf.nii.gz') + \
-            ' -o ' + os.path.join(WD, 'aroma') + \
-            ' -a ' + os.path.abspath('func2struct.mat') + \
-            ' -w ' + os.path.join(WD_template, 'warps.nii.gz') + \
-            ' -mc ' + os.path.abspath('fMRI_mcf.par') + \
-            ' -tr ' + str(TR) + \
-            ' -m ' + os.path.abspath('brain_mask.nii.gz') + \
-            ' -den both'
-        os.system(command)
+        if not os.path.exists('fMRI_denoised_mni.nii.gz'):
 
-        link = os.path.join(WD, 'fMRI_denoised.nii.gz')
-        if os.path.exists(link):
-            os.remove(link)        
-        fmri_filename = os.path.join(WD, 'aroma', 'denoised_func_data_' + 
-            AGGR_TYPE + '.nii.gz')
-        os.symlink(fmri_filename, link) 
+            command = 'python ' + AROMA_PATH + \
+                ' -i ' + os.path.abspath('fMRI_mcf.nii.gz') + \
+                ' -o ' + os.path.join(WD, 'aroma') + \
+                ' -a ' + os.path.abspath('func2struct.mat') + \
+                ' -w ' + os.path.join(WD_template, 'warps.nii.gz') + \
+                ' -mc ' + os.path.abspath('fMRI_mcf.par') + \
+                ' -tr ' + str(TR) + \
+                ' -m ' + os.path.abspath('brain_mask.nii.gz') + \
+                ' -den both'
+            os.system(command)
 
-        aw = fsl.ApplyWarp() 
-        aw.run(in_file = fmri_filename,
-            ref_file = mni_filename,
-            field_file = os.path.join(WD_template, 'warps.nii.gz'), 
-            out_file = 'fMRI_denoised_mni.nii.gz', 
-            premat = 'func2struct.mat')
-        shutil.rmtree('aroma')
-        os.unlink(link)
+            link = os.path.join(WD, 'fMRI_denoised.nii.gz')
+            if os.path.exists(link):
+                os.remove(link)        
+            fmri_filename = os.path.join(WD, 'aroma', 'denoised_func_data_' + 
+                AGGR_TYPE + '.nii.gz')
+            os.symlink(fmri_filename, link) 
+
+            aw = fsl.ApplyWarp() 
+            aw.run(in_file = fmri_filename,
+                ref_file = mni_filename,
+                field_file = os.path.join(WD_template, 'warps.nii.gz'), 
+                out_file = 'fMRI_denoised_mni.nii.gz', 
+                premat = 'func2struct.mat')
+            shutil.rmtree('aroma')
+            os.unlink(link)
         
     sessions, runs, paths = iterate_sessions_runs(WD, subject, task)
     WD_template = os.path.join(WD, subject, 'average/anat')
@@ -297,7 +299,7 @@ def process_fMRI(WD, subject, task, suffix, fsf_file, mni):
             aw = fsl.ApplyWarp() 
             aw.run(in_file = mymap,
                 ref_file = mni_filename,
-                field_file = os.path.join(WD_template, 'warps.nii.gz'), #'analysis.feat/reg/example_func2standard_warp.nii.gz', 
+                field_file = os.path.join(WD_template, 'warps.nii.gz'), 
                 out_file = mymap, 
                 premat = 'analysis.feat/reg/example_func2highres.mat')
 
@@ -340,12 +342,15 @@ def do_get_fc_matrices(WD, subject, task, atlas_filename, TR, label, FWHM,
         proc_dir = os.path.join(session, 'funcproc_' + task, run)
         confounds_filename = 'fMRI_mcf_fr24.par'
         confounds_filename = 'fMRI_mcf.par'
+        events_dir = os.path.join(WD, subject, session, 'func', subject + 
+            '_' + task +  '_' + run + '_events') 
         fc = get_fc(proc_dir, func_mni_filename, TR, label, atlas_filename, 
-            confounds_filename, FWHM, LOW_PASS, HIGH_PASS, TYPE)
+            confounds_filename, FWHM, LOW_PASS, HIGH_PASS, TYPE, events_dir)
         fd = np.mean(pd.read_csv(os.path.join(WD, subject, proc_dir, 
             'fd.txt')).values)
-        results.append((subject, int(session.split('-')[1]), 
-            int(run.split('-')[1]), fd) + tuple(fc))
+        if len(fc) > 0:
+            results.append((subject, int(session.split('-')[1]), 
+                int(run.split('-')[1]), fd) + tuple(fc))
 
     return(results)
 

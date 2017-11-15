@@ -12,7 +12,7 @@ FUNC_DIR2=/home/share/LeftHand/LHconnectivity/Berlin_raw/writing
 STRUCT_DIR=/home/share/LeftHand/LHconnectivity/Berlin_raw/MPRAGE
 LOG_FILE=$WD/logs/organize_data_Berlin.log
 NVOLS1=140 #150
-NVOLS2=260 #270
+NVOLS2=200 #270
 
 TASK1=resting
 TASK2=writing

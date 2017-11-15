@@ -1,0 +1,25 @@
+
+{ 
+"TR":2.0, 
+"RS_FWHM":5,
+"LOW_PASS":0.1,
+"HIGH_PASS":0.01,
+"WD":"/home/share/LeftHand/LHconnectivity/Berlin",
+"NJOBS":15,
+"CROP_SIZE":"0 -1 40 216 0 -1",
+"TEST_SUBJECT":"sub-1003",
+"MNI_FILENAME":"/usr/local/fsl/data/standard/MNI152_T1_2mm.nii.gz",
+"MNI_BRAIN_FILENAME":"/usr/local/fsl/data/standard/MNI152_T1_2mm_brain.nii.gz",
+"AROMA_PATH":"/home/ALDRECENTRUM/benjamin.garzon/Software/ICA-AROMA/ICA_AROMA.py",
+"FSF_FILE":"/home/ALDRECENTRUM/benjamin.garzon/Software/LeftHand/LHconnectivity/LHconnectivity/data/Berlin_fMRI.fsf",
+"ATLAS_FILENAME":"/home/share/LeftHand/fMRI/parcellations/atlas_lefthand.nii.gz",
+"FULL_FC_FILENAME":"/home/share/LeftHand/LHconnectivity/Berlin/full_fc.csv",
+"LW_FC_FILENAME":"/home/share/LeftHand/LHconnectivity/Berlin/lw_fc.csv",
+"AGGR_TYPE":"nonaggr",
+"FUNC_MNI_FILENAME":"fMRI_mni.nii.gz",
+"TASK":"task-writing",
+"REST":"task-resting",
+"SUFFIX":"lr",
+"LABEL":"all"
+}
+
