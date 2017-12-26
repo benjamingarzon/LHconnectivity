@@ -2,12 +2,13 @@ from __future__ import division
 import numpy as np
 from nilearn.input_data import NiftiMasker
 from nipype.interfaces import fsl
+from nipype.algorithms.confounds import CompCor
 from nilearn import image
 import os, glob, sys, random, itertools, shutil, errno
 #from scipy.spatial import distance_matrix
 from scipy.spatial.distance import squareform, pdist
 from scipy.stats import pearsonr
-from LHconnectivity import get_fc
+from LHconnectivity import get_fc, get_ALFF
 import pandas as pd
 from joblib import Parallel, delayed
 
@@ -47,18 +48,29 @@ def average_structurals(WD, subject, CROP_SIZE):
         # clean up
         os.system('rm sess*/anat/*T1w*_1mm.nii.gz')    
 
-def motion_correction(WD, subject, task, TR):
+def motion_correction(WD, subject, task, TR, acq_order):
     """
     Do motion correction and get parameters. 
     """
 
+    if acq_order == 'interleaved':
+        acq_order_flag = ' --odd'
+    if acq_order == 'top-down':
+        acq_order_flag = ' --down'
+    if acq_order == 'bottom-up':
+        acq_order_flag = ''
+
     def do_motion_correction(WD, TR):
         os.chdir(WD)
         if not os.path.exists('fMRI_mcf.nii.gz'):
-            os.system('slicetimer -i fMRI.nii.gz -o fMRI_st.nii.gz --odd -r ' + 
-                str(TR))
-            os.system('mcflirt -in fMRI_st.nii.gz -o fMRI_mcf -plots')
-            os.system('rm fMRI_st.nii.gz')
+            if acq_order != 'none':
+                os.system('slicetimer -i fMRI.nii.gz -o fMRI_st.nii.gz -r ' + 
+                    str(TR) + acq_order_flag)
+                os.system('mcflirt -in fMRI_st.nii.gz -o fMRI_mcf -plots')
+                os.system('rm fMRI_st.nii.gz')
+            else:
+                os.system('mcflirt -in fMRI.nii.gz -o fMRI_mcf -plots')
+        
 
         if not os.path.exists('mean.nii.gz'):
             os.system('fslmaths fMRI_mcf.nii.gz -Tmean mean.nii.gz')
@@ -261,6 +273,29 @@ def run_aroma(WD, subject, task, TR, AROMA_PATH, AGGR_TYPE, mni):
         do_run_aroma(proc_dir, WD_template)
 
 
+
+def run_compcor(func_mni_filename, mask_filename):
+
+    def do_run_compcor(WD):
+        os.chdir(WD)
+        ccinterface = CompCor()
+        ccinterface.inputs.realigned_file = func_mni_filename
+        ccinterface.inputs.mask_files = mask_filename
+        ccinterface.inputs.num_components = 1
+        ccinterface.inputs.pre_filter = 'polynomial'
+        ccinterface.inputs.regress_poly_degree = 2
+        ccinterface.run()
+
+    sessions, runs, paths = iterate_sessions_runs(WD, subject, task)
+
+    os.chdir(os.path.join(WD, subject))
+
+    for session, run, path in zip(sessions, runs, paths):
+        proc_dir = os.path.join(session, 'funcproc_' + task, run)
+
+        do_run_compcor(WD)
+
+
 def process_fMRI(WD, subject, task, suffix, fsf_file, mni):
     """
     Do the processing for fMRI data.
@@ -283,17 +318,26 @@ def process_fMRI(WD, subject, task, suffix, fsf_file, mni):
             (os.path.join(events_dir, 'EV2.csv'), 'fMRI.fsf'))
         os.system("sed -i 's @ANALYSIS %s ' %s"%
             (os.path.join(WD, 'analysis'), 'fMRI.fsf'))
-
-        os.system('feat fMRI.fsf')
+        
+        if os.path.exists('analysis.feat'):
+            if not os.path.exists(
+            'analysis.feat/rendered_thresh_zstat1.nii.gz'):
+                shutil.rmtree('analysis.feat')
+                os.system('feat fMRI.fsf')
+          
+        else:
+            os.system('feat fMRI.fsf')
 
         # warp the contrasts to MNI
+        os.system('cp analysis.feat/stats/zstat* .')
+        zstats = glob.glob('zstat*')
+        maps = zstats
 
-        tstats = glob.glob('analysis.feat/stats/tstat*')
-        zstats = glob.glob('analysis.feat/stats/zstat*')
-        cope = glob.glob('analysis.feat/stats/cope*')
-        varcope = glob.glob('analysis.feat/stats/varcope*')
+#        tstats = glob.glob('analysis.feat/stats/tstat*')
+#        cope = glob.glob('analysis.feat/stats/cope*')
+#        varcope = glob.glob('analysis.feat/stats/varcope*')
+#        maps = tstats + zstats + cope + varcope
 
-        maps = tstats + zstats + cope + varcope
 
         for mymap in maps:
             aw = fsl.ApplyWarp() 
@@ -303,18 +347,14 @@ def process_fMRI(WD, subject, task, suffix, fsf_file, mni):
                 out_file = mymap, 
                 premat = 'analysis.feat/reg/example_func2highres.mat')
 
-        os.system('mv analysis.feat/stats/tstat* .')
-        os.system('mv analysis.feat/stats/zstat* .')
-        os.system('mv analysis.feat/stats/cope* .')
-        os.system('mv analysis.feat/stats/varcope* .')
-
         # remove analysis dir
-        shutil.rmtree('analysis.feat')
+#        shutil.rmtree('analysis.feat')
 
     sessions, runs, paths = iterate_sessions_runs(WD, subject, task)    
     WD_template = os.path.join(WD, subject, 'average/anat')
 
     for session, run, path in zip(sessions, runs, paths):
+
         os.chdir(os.path.join(WD, subject))
         proc_dir = os.path.join(WD, subject, session, 'funcproc_' + task + 
             '-' + suffix, run)  
@@ -330,7 +370,7 @@ def process_fMRI(WD, subject, task, suffix, fsf_file, mni):
 
 
 def do_get_fc_matrices(WD, subject, task, atlas_filename, TR, label, FWHM, 
-    LOW_PASS, HIGH_PASS, TYPE, func_mni_filename):
+    LOW_PASS, HIGH_PASS, TYPE, func_mni_filename, NREMOVE, MINVOLS):
     """
     Compute FC matrices for each run. 
     """
@@ -341,11 +381,12 @@ def do_get_fc_matrices(WD, subject, task, atlas_filename, TR, label, FWHM,
         os.chdir(os.path.join(WD, subject))
         proc_dir = os.path.join(session, 'funcproc_' + task, run)
         confounds_filename = 'fMRI_mcf_fr24.par'
-        confounds_filename = 'fMRI_mcf.par'
         events_dir = os.path.join(WD, subject, session, 'func', subject + 
             '_' + task +  '_' + run + '_events') 
+        #print(os.path.join(WD, subject, proc_dir))
         fc = get_fc(proc_dir, func_mni_filename, TR, label, atlas_filename, 
-            confounds_filename, FWHM, LOW_PASS, HIGH_PASS, TYPE, events_dir)
+            confounds_filename, FWHM, LOW_PASS, HIGH_PASS, TYPE, events_dir,
+            NREMOVE, MINVOLS)
         fd = np.mean(pd.read_csv(os.path.join(WD, subject, proc_dir, 
             'fd.txt')).values)
         if len(fc) > 0:
@@ -356,14 +397,15 @@ def do_get_fc_matrices(WD, subject, task, atlas_filename, TR, label, FWHM,
 
 
 def get_fc_matrices(WD, subjects, task, atlas_filename, TR, label, FWHM, 
-    LOW_PASS, HIGH_PASS, TYPE, func_mni_filename, output_filename, NJOBS):
+    LOW_PASS, HIGH_PASS, TYPE, func_mni_filename, output_filename, NJOBS, 
+    NREMOVE, MINVOLS):
     """
     Compute FC matrices for each run for all subjects. 
     """
 
     results = Parallel(n_jobs = NJOBS)(delayed(do_get_fc_matrices)(WD, subject, 
     task, atlas_filename, TR, label, FWHM, LOW_PASS, HIGH_PASS, TYPE, 
-    func_mni_filename)
+    func_mni_filename, NREMOVE, MINVOLS)
     for subject in subjects) 
 
     results = [item for sublist in results for item in sublist]
@@ -372,5 +414,240 @@ def get_fc_matrices(WD, subjects, task, atlas_filename, TR, label, FWHM,
         [ 'fc_%03d'%(i+1)  for i in range(results.shape[1] - 4) ]
     results.sort_values(by = ['SUBJECT', 'SESSION', 'RUN'], inplace = True)
     results.to_csv(output_filename, index = False)
+
+def do_get_ALFF(WD, subject, task, mask_filename, TR, FWHM, 
+    LOW_PASS, HIGH_PASS, func_mni_filename):
+    
+    sessions, runs, paths = iterate_sessions_runs(WD, subject, task)
+    results = []
+
+    for session, run, path in zip(sessions, runs, paths):
+        os.chdir(os.path.join(WD, subject))
+        proc_dir = os.path.join(session, 'funcproc_' + task, run)
+        confounds_filename = 'fMRI_mcf_fr24.par'
+        ALFF = get_ALFF(proc_dir, func_mni_filename, TR, mask_filename, 
+            FWHM, LOW_PASS, HIGH_PASS, confounds_filename)
+        fd = np.mean(pd.read_csv(os.path.join(WD, subject, proc_dir, 
+                'fd.txt')).values)
+    if len(ALFF) > 0:
+        results.append((subject, int(session.split('-')[1]), 
+        int(run.split('-')[1]), fd) + tuple(ALFF))
+
+    return(results)
+
+def get_ALFFs(WD, subjects, task, mask_filename, TR, FWHM, 
+    LOW_PASS, HIGH_PASS, func_mni_filename, output_filename, 
+    output_img_filename):
+    """
+    Compute ALFF for each run for all subjects. 
+    """
+    indices = []
+    maps = []
+    for subject in subjects:
+        os.chdir(os.path.join(WD, subject))
+        sessions, runs, paths = iterate_sessions_runs(WD, subject, task)
+
+        for session, run, path in zip(sessions, runs, paths): 
+            proc_dir = os.path.join(WD, subject, session, 'funcproc_' + task, 
+            run) 
+
+            confounds_filename = 'fMRI_mcf_fr24.par'
+            ALFF = get_ALFF(proc_dir, func_mni_filename, TR, mask_filename, 
+            FWHM, LOW_PASS, HIGH_PASS, confounds_filename)
+            fd = np.mean(pd.read_csv(os.path.join(WD, subject, session, 
+                'funcproc_' + task, run, 'fd.txt')).values)
+            indices.append((subject, int(session.split('-')[1]), 
+            int(run.split('-')[1]), fd) )
+            maps.append(ALFF)
+
+    os.chdir(WD)
+
+    indices = pd.DataFrame(indices)
+    indices.columns = ['SUBJECT','SESSION','RUN','FD']
+    indices.to_csv(output_filename, index = False)
+
+    # concatenate the list of images
+    output_img = image.concat_imgs(maps)
+    output_img.to_filename(output_img_filename)
+
+
+def get_activations(WD, subjects, task, suffix, stat_filename, output_filename, 
+    output_img_filename):
+    """
+    Join all activation maps. 
+    """
+
+    indices = []
+    filenames = []
+    for subject in subjects:
+        os.chdir(os.path.join(WD, subject))
+        sessions, runs, paths = iterate_sessions_runs(WD, subject, task)
+
+        for session, run, path in zip(sessions, runs, paths): 
+            proc_dir = os.path.join(WD, subject, session, 'funcproc_' + task + 
+                '-' + suffix, run) 
+
+            abs_stat_filename = os.path.join(proc_dir, stat_filename)
+            fd = np.mean(pd.read_csv(os.path.join(WD, subject, session, 
+                'funcproc_' + task, run, 'fd.txt')).values)
+            if os.path.exists(abs_stat_filename):  
+                indices.append((subject, int(session.split('-')[1]), 
+                    int(run.split('-')[1]), fd) )
+                filenames.append(abs_stat_filename)
+
+    os.chdir(WD)
+
+#    indices = [item for sublist in indices for item in sublist]
+
+    indices = pd.DataFrame(indices)
+    indices.columns = ['SUBJECT','SESSION','RUN','FD']
+    #indices.sort_values(by = ['SUBJECT', 'SESSION', 'RUN'], inplace = True)
+    indices.to_csv(output_filename, index = False)
+
+    # concatenate the list of images
+    output_img = image.concat_imgs(filenames)
+    output_img.to_filename(output_img_filename)
+
+
+def do_percent_signal(WD, WD_template, mni, atlas_filename, stat_filename):
+    print(WD)
+    os.chdir(WD)
+    mni_filename = mni[0]
+    warp_filename = os.path.join(WD_template, 'warps.nii.gz') 
+    inv_warp_filename = os.path.join(WD_template, 'inv_warps.nii.gz') 
+    warped_atlas_filename = 'analysis.feat/warped_atlas.nii.gz'
+
+    # invert warp
+    if not os.path.exists(inv_warp_filename):
+        os.system('invwarp -w %s -r %s -o %s'%(warp_filename, mni_filename, 
+            inv_warp_filename))
+            
+    # register atlas 
+    aw = fsl.ApplyWarp() 
+    aw.run(in_file = atlas_filename,
+    ref_file = 'analysis.feat/example_func.nii.gz',
+        field_file = inv_warp_filename, 
+        out_file = warped_atlas_filename, 
+        postmat = 'analysis.feat/reg/highres2example_func.mat',
+        interp = 'nn')
+
+    # featquery and read output
+    atlas = image.load_img(warped_atlas_filename)
+    nvols = np.max(atlas.get_data())
+    mask_filename = os.path.abspath('querymask.nii.gz') 
+    ps = []
+    for i in range(nvols):
+        mask =  image.new_img_like(atlas, atlas.get_data() == i + 1) 
+        mask.to_filename(mask_filename)
+        os.system(('featquery 1 analysis.feat 1 stats/%s featquery -p %s')%
+            (stat_filename, mask_filename))
+        values = pd.read_csv('analysis.feat/featquery/report.txt', 
+            sep=' ', header = None)
+        ps.append(values[6][0]) 
+        shutil.rmtree('analysis.feat/featquery')
+        os.system('rm ' + mask_filename)
+    return(ps) 
+       
+
+
+def loop_percent_signal(WD, subject, task, suffix, stat_filename, 
+    atlas_filename, mni):
+
+    os.chdir(os.path.join(WD, subject))
+    sessions, runs, paths = iterate_sessions_runs(WD, subject, task)
+
+    indices = []
+    for session, run, path in zip(sessions, runs, paths): 
+        proc_dir = os.path.join(WD, subject, session, 'funcproc_' + task + 
+            '-' + suffix, run) 
+        WD_template = os.path.join(WD, subject, 'average/anat')                
+        abs_stat_filename = os.path.join(proc_dir, 'analysis.feat/stats',
+            stat_filename + '.nii.gz')
+
+        if os.path.exists(abs_stat_filename):  
+            fd = np.mean(pd.read_csv(os.path.join(WD, subject, session, 
+                'funcproc_' + task, run, 'fd.txt')).values)
+            ps = do_percent_signal(proc_dir, WD_template, mni, atlas_filename, 
+                stat_filename)
+            indices.append((subject, int(session.split('-')[1]), 
+                int(run.split('-')[1]), fd) + tuple(ps))
+    return(indices)
+
+def get_percent_signal(WD, subjects, task, suffix, stat_filename, 
+    output_filename, atlas_filename, atlas_names, mni, NJOBS):
+    """
+    Get percent signal with featquery. 
+    """
+
+    names = pd.read_csv(atlas_names, header = None).values.tolist()
+
+    indices = Parallel(n_jobs = NJOBS)(delayed(loop_percent_signal)(WD, subject, 
+        task, suffix, stat_filename, atlas_filename, mni)
+    for subject in subjects) 
+
+    os.chdir(WD)
+
+    indices = [item for sublist in indices for item in sublist]
+    indices = pd.DataFrame(indices)
+    indices.columns = ['SUBJECT','SESSION','RUN','FD'] + \
+        [ x[0] for x in names ]
+    #'ROI_%03d'%(i+1)  for i in range(indices.shape[1] - 4)] # #
+    indices.to_csv(output_filename, index = False)
+
+
+def get_ICA_lists(WD, subjects, task, suffix, NVOLS):
+    """
+    Produce image lists for ICA analysis etc
+    """
+    indices = []
+    func_filenames = []
+    struct_filenames = []
+
+    for subject in subjects:
+        os.chdir(os.path.join(WD, subject))
+        sessions, runs, paths = iterate_sessions_runs(WD, subject, task)
+
+        for session, run, path in zip(sessions, runs, paths): 
+            print(path)
+            if NVOLS > 0:
+                img = image.load_img(path)
+                print(img.shape[3])
+
+                if img.shape[3] != NVOLS: 
+                    print('No')
+                    continue
+            proc_dir = os.path.join(WD, subject, session, 'icaproc_' + task, 
+                run)
+            if not os.path.exists(proc_dir):
+                os.makedirs(proc_dir)
+            link = os.path.join(proc_dir, 'fMRI.nii.gz')
+            if os.path.exists(link):
+                os.remove(link)        
+            os.symlink(os.path.abspath(path), link) 
+
+            func_filenames.append(link)
+            struct_filenames.append(os.path.join(WD, subject, 'average/anat',
+                 'structural_brain.nii.gz'))
+
+            fd = np.mean(pd.read_csv(os.path.join(WD, subject, session, 
+                'funcproc_' + task, run, 'fd.txt')).values)
+            indices.append((subject, int(session.split('-')[1]), 
+                int(run.split('-')[1]), fd) )
+
+
+    os.chdir(WD)
+
+    indices = pd.DataFrame(indices)
+    indices.columns = ['SUBJECT','SESSION','RUN','FD']
+    indices.to_csv('ICA_table.csv', index = False)
+
+    with open('ICA_func.txt','wb') as f:
+        for name in func_filenames:
+            f.write(name + '\n')
+
+    with open('ICA_struct.txt','wb') as f:
+        for name in struct_filenames:
+            f.write(name + '\n')
+
 
 

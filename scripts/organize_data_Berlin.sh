@@ -13,6 +13,7 @@ STRUCT_DIR=/home/share/LeftHand/LHconnectivity/Berlin_raw/MPRAGE
 LOG_FILE=$WD/logs/organize_data_Berlin.log
 NVOLS1=140 #150
 NVOLS2=200 #270
+DURATION=3
 
 TASK1=resting
 TASK2=writing
@@ -125,7 +126,7 @@ python create_evs_Berlin.py $FUNC_DIR2/onsets/${subject}*.txt \
 $WD/sub-${NAME}/sess-${SESS}/func/sub-${NAME}_task-${TASK2}_run-${RUN}_events/\
 EV1.csv \
 $WD/sub-${NAME}/sess-${SESS}/func/sub-${NAME}_task-${TASK2}_run-${RUN}_events/\
-EV2.csv
+EV2.csv $DURATION
 
 #EV1.csv
 #$WD/sub-${NAME}/sess-${SESS}/func/sub-${NAME}_task-${TASK2}_run-${RUN}_events/\

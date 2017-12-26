@@ -1,6 +1,6 @@
 
 libs = c('lmerTest', 'dplyr', 'reshape2', 'ggplot2', 'lme4', 'lmerTest', 'multcomp', 'GGally', 'pracma', 'geomnet', 'ggnetwork', 'network',
-         'tsne', 'factoextra', 'cluster')
+         'tsne', 'factoextra', 'cluster', 'spls','rstan','shinystan') #'caret',
 
 for (i in libs){
   if( !is.element(i, .packages(all.available = TRUE)) ) {
@@ -9,5 +9,3 @@ for (i in libs){
   library(i,character.only = TRUE)
 }
 
-c('lmerTest', 'dplyr', 'reshape2', 'ggplot2', 'lme4', 'lmerTest', 'multcomp', 'GGally', 'pracma', 'geomnet', 'ggnetwork', 'network',
-'tsne', 'factoextra', 'cluster')

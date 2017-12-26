@@ -1,5 +1,41 @@
 PLAN
 
+MEETING
+show comparison writing / resting in Berlin
+possibly just weaker than Stockholm
+show traces, flat
+show clustering, show prediction
+
+show clustering Stockholm
+denoised/ not denoised
+full vs lw correlations
+
+CHECK FISHER transform
+
+Prediction> Stockholm / Berlin / Stockholm - Berlin and interpret connections
+OBSERVE AND CLEAN FITS
+INSTALL CARET
+X/VALIDATE PREDICTION
+
+
+
+Add Prefrontal and midbrain
+
+Do clustering
+RUN*SESSION interaction
+RUN difference
+
+Compare writing and resting matrices
+How many TRs to remove
+
+Before clustering, remove motion, group difference etc...
+
+Run denoised data
+Compcor ?
+
+
+
+--------------------------------------
 
 WORKDIR = /home/share/LeftHand/LHConnectivity
 

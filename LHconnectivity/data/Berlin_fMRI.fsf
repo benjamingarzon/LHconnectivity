@@ -32,10 +32,10 @@ set fmri(sscleanup_yn) 0
 set fmri(outputdir) "@ANALYSIS"
 
 # TR(s)
-set fmri(tr) 2.200000
+set fmri(tr) 2.000000
 
 # Total volumes
-set fmri(npts) 199
+set fmri(npts) 270
 
 # Delete volumes
 set fmri(ndelete) 0

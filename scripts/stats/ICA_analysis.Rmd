@@ -1,0 +1,223 @@
+---
+output: pdf_document
+---
+
+
+```{r, echo=FALSE}
+
+# melodic -i .filelist -o groupmelodic.ica -v --nobet --bgthreshold=10 --tr=2 --report --guireport=./report.html --bgimage=bg_image -d 100 --vn --mmthresh=0.5 --sep_vn -m mask
+rm(list=ls())
+
+setwd("~/Software/LeftHand/LHconnectivity/scripts/stats")
+
+source('./installpackages.R')
+source('./fc_analysis_func.R')
+
+
+# try time courses with learners only
+
+
+#netmats = read.table('/home/share/LeftHand/LHconnectivity/Berlin/melodic.gica/netmats_full.csv', header=F, sep = ',')
+
+#netmats = read.table('/home/share/LeftHand/LHconnectivity/Berlin/melodic.gica/netmats_ridge.csv', header=F, sep = ',')
+#bad_nets = read.table('/home/share/LeftHand/LHconnectivity/Berlin/melodic.gica/bad_nets.txt')$V1;
+
+netmats = read.table('/home/share/LeftHand/LHconnectivity/Berlin/melodic.gica/netmats_ridge.csv', header=F, sep = ',')
+bad_nets = read.table('/home/share/LeftHand/LHconnectivity/Berlin/melodic.gica/bad_nets.txt')$V1;
+
+netmats = read.table('/home/share/LeftHand/LHconnectivity/Berlin/melodic.gica/netmats_ridge_reduced.csv', header=F, sep = ',')
+bad_nets = read.table('/home/share/LeftHand/LHconnectivity/Berlin/melodic.gica/noninterestingnets.txt')$V1;
+
+load("/home/ALDRECENTRUM/benjamin.garzon/Software/LeftHand/Behaviour/leftHand_Stockholm//data//allstats_berlin.Rdata")
+dev_data = subset(subjstats_berlin, var == 'dev' & ID %in% Berlin_experimental)
+
+#Berlin_learners = c('1001', '1012', '1004', '1011', '1015')
+#Berlin_nonlearners = c('1006', '1007', '1009', '1010')
+Berlin_learners = dev_data$ID[dev_data$tau < median(dev_data$tau)]
+Berlin_nonlearners = dev_data$ID[dev_data$tau >= quantile(dev_data$tau, .66)]
+Berlin_learners = dev_data$ID[dev_data$tau < quantile(dev_data$tau, .33)]
+
+netmats.table = read.table('/home/share/LeftHand/LHconnectivity/Berlin/ICA_table.csv', header=T, sep = ',')
+netmats.table$SUBJECT = sapply(as.character(netmats.table$SUBJECT), function(x) strsplit(x, '-')[[1]][2])
+netmats.table$GROUP = 'none' 
+netmats.table$GROUP[netmats.table$SUBJECT %in% Berlin_experimental] = 'experimental'
+netmats.table$GROUP[netmats.table$SUBJECT %in% Berlin_control] = 'control'
+netmats.table$GROUP[netmats.table$SUBJECT %in% Berlin_learners ] = 'learners' 
+netmats.table$GROUP[netmats.table$SUBJECT %in% Berlin_nonlearners ] = 'non-learners' 
+
+
+NETnames = paste('N', as.character(seq(100)), sep = '_')
+NETnames =  NETnames[-bad_nets]
+NNETS = ncol(netmats)
+NROIS = (1 + sqrt(1 + 8*NNETS))/2
+
+cormat.table = merge(netmats.table, netmats.table, by = NULL)
+cormat.cor = cor(t(netmats))
+cormat.eu = as.matrix(dist(netmats))
+cormat.melt = melt(cormat.cor)
+
+cormat.data = cbind(cormat.table, cormat.melt)
+cormat.data$TYPE = factor('different_subject', levels = c('same_subject', 'same_session', 'same_run', 'different_subject' ))
+cormat.data$TYPE [ as.character(cormat.data$SUBJECT.x) == as.character(cormat.data$SUBJECT.y) ] = 'same_subject'
+cormat.data$TYPE [ cormat.data$TYPE == 'same_subject' &
+           as.character(cormat.data$SESSION.x) == as.character(cormat.data$SESSION.y)] = 'same_session'
+cormat.data$TYPE [ cormat.data$TYPE == 'same_session' &
+           cormat.data$RUN.x == cormat.data$RUN.y ] = 'same_run'
+cormat.data = subset(cormat.data, GROUP.x != 'none' & GROUP.y != 'none')
+
+
+plot.cor = ggplot(data = cormat.data, aes(x = TYPE, y = value)) +
+  geom_violin(draw_quantiles = 0.5) + 
+  stat_summary(fun.y = mean,
+               fun.ymin = function(x) mean(x) - se(x), 
+               fun.ymax = function(x) mean(x) + se(x), 
+               geom = "errorbar", position = 'dodge') +     
+   xlab('Type') +
+   ylab('Similarity') +
+   scale_fill_brewer(palette="Paired") +
+   theme(legend.position="none") + theme_bw() + 
+   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+   facet_grid(GROUP.x ~ GROUP.y)
+print(plot.cor)
+
+# cormat.diff = subset(cormat.data, GROUP.x == 'control' & GROUP.y == 'experimental')
+# 
+# plot.cor = ggplot(data = cormat.diff, aes(x = as.factor(SESSION.y), y = value, fill = as.factor(SESSION.x))) +
+#   geom_boxplot(position = 'dodge') + 
+# #  stat_summary(fun.y = mean,
+# #               fun.ymin = function(x) mean(x) - se(x), 
+# #               fun.ymax = function(x) mean(x) + se(x), 
+# #               geom = "errorbar", position = 'dodge') +     
+#    ylab('Similarity') +
+#    scale_fill_brewer(palette="Paired") +
+#    theme(legend.position="none") + theme_bw() + 
+#    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
+# #   facet_grid(SESSION.x ~ .)
+# print(plot.cor)
+
+cormat.same = subset(cormat.data, TYPE == 'same_session' & RUN.x < RUN.y)
+plot.same = ggplot(data = cormat.same, aes(x = as.factor(SESSION.x), y = value, fill = as.factor(GROUP.x))) +
+   geom_boxplot(position = 'dodge') + 
+   ylab('Similarity') +
+   scale_fill_brewer(palette="Paired") +
+   theme(legend.position="none") + theme_bw() + 
+   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())# +
+#   facet_grid(SESSION.y ~ .)
+
+print(plot.same)
+
+
+cormat.improve = subset(cormat.data, TYPE == 'same_subject' & SESSION.x < 2 & RUN.x < 2 & RUN.y < 2 & SESSION.y > 2)
+plot.improve = ggplot(data = cormat.improve, aes(x = as.factor(SESSION.y), y = value, fill = as.factor(GROUP.x))) +
+   geom_boxplot(position = 'dodge') + 
+   ylab('Similarity') +
+   scale_fill_brewer(palette="Paired") +
+   theme(legend.position="none") + theme_bw() + 
+   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())# +
+#   facet_grid(SESSION.y ~ .)
+
+print(plot.improve)
+model.improve = lmer(atanh(value) ~ 1 + GROUP.x*SESSION.y + (1|SUBJECT.x), data = cormat.improve)
+model.improve = lm(atanh(value) ~ 1 + GROUP.x*SESSION.y, data = cormat.improve)
+model.improve = t.test(atanh(value) ~ GROUP.x, data = cormat.improve, )
+
+print(summary(model.improve))
+
+#results = lapply(seq(NNETS), function(x) dotest_Berlin(x, netmats, netmats.table, ylim = c(-4, 4)))
+results = lapply(seq(NNETS), function(x) dotest_Berlin_difference(x, netmats, netmats.table, ylim = c(-4, 4)))
+
+p.values = sapply(results, function(x) x$p)
+coefs = sapply(results, function(x) x$coef)
+
+# plot pvalues
+p.values.mat = squareform(p.values)
+coefs.mat = squareform(coefs)
+
+hist(p.values, 20)
+
+diag(p.values.mat) = NA
+colnames(p.values.mat) = rownames(p.values.mat) = as.factor(NETnames)
+
+alpha = 0.05
+p.values.melt = melt(p.values.mat)
+coefs.melt = melt(coefs.mat)
+
+p.values.melt$sig = sign(coefs.melt$value)*(p.values.melt$value < alpha)
+
+plot.pvals = ggplot(p.values.melt, aes(Var2, Var1, fill = sig)) + geom_tile() +  theme_minimal()+ # minimal theme
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, size = 12, hjust = 1)) +
+  theme(axis.text.y = element_text(size = 12)) +
+  scale_fill_gradientn(values = c(1, 0), colours = c("red", "white", "cyan")) + 
+  geom_text(aes(Var2, Var1, label = round(value, 2)), color = "black", size = 4)
+
+
+print(plot.pvals)
+
+p.fdr = p.adjust(p.values, method = 'fdr')
+
+
+print('Connection layout')
+fc_names = squareform(seq(ncol(netmats)))
+colnames(fc_names) = rownames(fc_names) = NETnames
+
+# plot location of the connections
+plot.names <- ggplot(melt(fc_names), aes(Var2, Var1, fill = value))+
+  theme_minimal()+ # minimal theme
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+                                   size = 7, hjust = 1)) +
+  theme(axis.text.y = element_text(size = 7, hjust = 1)) +
+  coord_fixed() +
+  geom_text(aes(Var2, Var1, label = value), color = "black", size = 2) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    axis.ticks = element_blank())
+
+print(plot.names)
+
+
+
+```
+
+## Cluster the connections
+
+```{r, echo=FALSE}
+# X = sapply(results, function(x) x$y.dem)
+# 
+# cluster_colors = c('red', 'blue', 'green', 'yellow', 'grey', 'cyan', 'black', 'orange', 'magenta', 'brown')
+#  
+# mydist = as.dist(1 - cor(X))
+# clustmethod = "complete" # ward.D2
+# 
+# #mydist = dist(X, method = "euclidean")
+# 
+# heatmap(t(X), distfun = function(x) as.dist(1 - cor(X)), #dist(x, method = 'euclidean'),
+#         hclustfun = function(d) hclust(d, method = clustmethod), Colv = NA)
+# 
+# res.hc <- hclust(mydist, method = clustmethod)     # Compute hierachical clustering  
+# 
+# K = 10
+# fviz_dend(res.hc, k = K, # Cut in four groups
+#           cex = 0.5, # label size
+#           k_colors = c(cluster_colors),
+#           color_labels_by_k = TRUE, # color labels by groups
+#           rect = TRUE # Add rectangle around groups
+# )
+
+# # analyze different cluster numbers
+# fc_evol.clust = fc_evol.mean[seq(NVARS)]
+# memb <- cutree(res.hc, k = K)
+# for (i in 1:K){
+#   fc_evol.clust[ paste0("cluster", i)] = rowMeans(fc_evol.mean[-seq(NVARS)][, memb==i])
+#   
+# }
+# 
+# fc_evol.melt = melt(fc_evol.clust, id.vars = id.vars)
+# plot.clus <- ggplot(fc_evol.melt, aes(x = REALWEEK, y = value, group = GROUP, col = GROUP)) + geom_line() + facet_grid( . ~ variable)
+# print(plot.clus)
+
+
+```

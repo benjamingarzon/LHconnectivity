@@ -1,0 +1,85 @@
+---
+title: "FC analysis"
+output: pdf_document
+---
+
+
+
+```{r}
+
+rm(list=ls())
+#fc_evol.orig = read.table('/home//share/LeftHand/fMRI/RSA/fc_evol_all.txt', header=T, sep = ',')
+#fc_evol.orig = read.table('/home//share/LeftHand/LHconnectivity/Stockholm/lw_fc.csv', header=T, sep = ',')
+#fc_evol.denoised = read.table('/home//share/LeftHand/LHconnectivity/Stockholm/lw_fc_rest_denoised.csv', header=T, sep = ',')
+#fc_evol.denoised = read.table('/home//share/LeftHand/LHconnectivity/Berlin/lw_fc_denoised.csv', header=T, sep = ',')
+
+# FULL
+#fc_evol.Stockholm = read.table('/home//share/LeftHand/LHconnectivity/Stockholm/full_fc_rest.csv', header=T, sep = ',')
+#fc_evol.Berlin = read.table('/home//share/LeftHand/LHconnectivity/Berlin/full_fc_resting_all.csv', header=T, sep = ',')
+#fc_evol.Berlin = read.table('/home//share/LeftHand/LHconnectivity/Berlin/full_fc_writing_rest_nlp.csv', header=T, sep = ',')
+
+# LEDOIT - WOLF
+fc_evol.Stockholm = read.table('/home//share/LeftHand/LHconnectivity/Stockholm/lw_fc_rest_nlp_denoised_5.csv', header=T, sep = ',')
+fc_evol.Berlin.resting = read.table('/home//share/LeftHand/LHconnectivity/Berlin/lw_fc_resting_all_nlp.csv', header=T, sep = ',')
+fc_evol.Berlin.writing = read.table('/home//share/LeftHand/LHconnectivity/Berlin/lw_fc_writing_rest_nlp.csv', header=T, sep = ',')
+
+#fc_evol.Berlin.1 = read.table('/home//share/LeftHand/LHconnectivity/Berlin/lw_fc_resting_all.csv', header=T, sep = ',')
+#fc_evol.Berlin.2 = read.table('/home//share/LeftHand/LHconnectivity/Berlin/lw_fc_writing_rest.csv', header=T, sep = ',')
+
+
+```
+
+## Compare datasets
+```{r}
+
+fc_evol.Berlin = fc_evol.Berlin.writing
+
+par(mfrow=c(2, 1))
+hist(fc_evol.Berlin$FD, 50, xlab = "FD", main = "Berlin", xlim = c(0, 0.8))
+hist(fc_evol.Stockholm$FD, 50, xlab = "FD", main = "Stockholm", xlim = c(0, 0.8))
+
+par(mfrow=c(2, 1))
+hist(fc_evol.Berlin$fc_001, 50, xlab = "fc_001", main = "Berlin", xlim = c(-1, 1.5))
+hist(fc_evol.Stockholm$fc_001, 50, xlab = "fc_001", main = "Stockholm", xlim = c(-1, 1.5))
+
+par(mfrow=c(2, 1))
+hist(fc_evol.Berlin$fc_002, 50, xlab = "fc_002", main = "Berlin", xlim = c(-1, 1.5))
+hist(fc_evol.Stockholm$fc_002, 50, xlab = "fc_002", main = "Stockholm", xlim = c(-1, 1.5))
+
+#plot(fc_evol.Berlin.1$fc_001, fc_evol.Berlin.2$fc_001)
+
+```
+
+## Stockholm
+```{r}
+dataset = 'Stockholm'
+suffix = paste(dataset, "rest", sep ="_")
+fc_evol = fc_evol.Stockholm
+source('./fc_analysis.R')
+```
+
+## Berlin rest
+```{r}
+dataset = 'Berlin'
+suffix = paste(dataset, "resting", sep ="_")
+fc_evol = fc_evol.Berlin.resting
+source('./fc_analysis.R')
+```
+
+
+## Berlin writing
+```{r}
+dataset = 'Berlin'
+suffix = paste(dataset, "writing", sep ="_")
+fc_evol = fc_evol.Berlin.writing
+source('./fc_analysis.R')
+```
+
+
+## Berlin difference
+```{r}
+#dataset = 'Berlin_difference'
+#suffix = paste(dataset, "rest", sep ="_")
+#fc_evol = fc_evol.Berlin
+#source('./fc_analysis.R')
+```

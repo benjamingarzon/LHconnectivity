@@ -1,0 +1,149 @@
+---
+output: pdf_document
+---
+
+
+```{r, echo=FALSE}
+
+setwd("~/Software/LeftHand/LHconnectivity/scripts/stats")
+rm(list=ls())
+
+source('./installpackages.R')
+source('~/Software/LeftHand/VBM/get_session_data.R')
+source('./fc_analysis_func.R')
+
+ROI.lh = read.table('/home//share/LeftHand/LHconnectivity/Stockholm/cope_ps_lh_all_ROI10.csv', header=T, sep = ',')
+ROI.rh = read.table('/home//share/LeftHand/LHconnectivity/Stockholm/cope_ps_rh_all_ROI10.csv', header=T, sep = ',')
+ROI.lh_rh = read.table('/home//share/LeftHand/LHconnectivity/Stockholm/cope_ps_lh_rh_all_ROI10.csv', header=T, sep = ',')
+ROI.rh_lh = read.table('/home//share/LeftHand/LHconnectivity/Stockholm/cope_ps_rh_lh_all_ROI10.csv', header=T, sep = ',')
+#colnames(ROI.lh) = colnames(ROI.rh) = colnames(ROI.lh_rh) = colnames(ROI.rh_lh) = ROInames
+
+#data.activation = read.table('/home//share/LeftHand/LHconnectivity/Stockholm/zstat_lh_all.txt', header=T, sep = ',')
+data.activation = ROI.lh[seq(4)]
+data.activation$SUBJECT = sapply(as.character(data.activation$SUBJECT), function(x) strsplit(x, '-')[[1]][2])
+
+data.activation = merge(data.activation, data, by = c("SUBJECT", "SESSION"))
+
+ROInames = as.character(ROInames)
+NROIS = length(ROInames)
+
+
+```
+
+```{r, dpi=300}
+
+results.lh = lapply(seq(NROIS), function(x) dotest_Stockholm(x, ROI.lh[, -seq(4)], data.activation, ylim = c(-5, 5), name = ROInames[x] )) 
+results.rh = lapply(seq(NROIS), function(x) dotest_Stockholm(x, ROI.rh[, -seq(4)], data.activation, ylim = c(-5, 5), name = ROInames[x] )) 
+results.lh_rh = lapply(seq(NROIS), function(x) dotest_Stockholm(x, ROI.lh_rh[, -seq(4)], data.activation, ylim = c(-5, 5), name = ROInames[x] )) 
+results.rh_lh = lapply(seq(NROIS), function(x) dotest_Stockholm(x, ROI.rh_lh[, -seq(4)], data.activation, ylim = c(-5, 5), name = ROInames[x] )) 
+
+p.values.lh = sapply(results.lh, function(x) x$p)
+coefs.lh = sapply(results.lh, function(x) x$coef)
+tc.lh = sapply(results.lh, function(x) x$y.dem)
+
+p.values.rh = sapply(results.rh, function(x) x$p)
+coefs.rh = sapply(results.rh, function(x) x$coef)
+tc.rh = sapply(results.rh, function(x) x$y.dem)
+
+p.values.lh_rh = sapply(results.lh_rh, function(x) x$p)
+coefs.lh_rh = sapply(results.lh_rh, function(x) x$coef)
+tc.lh_rh = sapply(results.lh_rh, function(x) x$y.dem)
+
+p.values.rh_lh = sapply(results.rh_lh, function(x) x$p)
+coefs.rh_lh = sapply(results.rh_lh, function(x) x$coef)
+tc.rh_lh = sapply(results.rh_lh, function(x) x$y.dem)
+
+tc = rbind(tc.lh, tc.rh, tc.lh_rh)#, tc.rh_lh)
+ps = rbind(p.values.lh, p.values.rh, p.values.lh_rh)#, p.values.rh_lh)
+min.ps = apply(ps, 2, min)
+p.fdr = p.adjust(min.ps, method = 'fdr')
+p.fdr = p.adjust(p.values.lh_rh, method = 'fdr')
+  
+tc.data = data.activation
+
+tc.data = rbind(
+  mutate(tc.data, CONTRAST = 'lh'),
+  mutate(tc.data, CONTRAST = 'rh'),
+  mutate(tc.data, CONTRAST = 'lh_rh')
+#  mutate(tc.data, CONTRAST = 'rh_lh')
+)
+
+alpha = 0.05
+
+plotbars = function(coefs, ROInames, pvals, alpha){
+  coefs.melt = melt(coefs)
+  coefs.melt$names = ROInames
+  coefs.melt$pvals = round(pvals, 3)
+
+  color = ifelse(pvals < alpha, T, F)
+  plot.bar <- ggplot(coefs.melt, aes(x = names, y = value, fill = color)) + 
+  geom_bar(stat="identity") + xlab('ROI') + ylab('a. u.') + 
+  geom_text(aes(label = pvals), vjust=1.6, color="black",
+            position = position_dodge(0.9), size=2) +
+  theme_minimal() + 
+  scale_colour_discrete(name = "", labels=c("p < 0.05", "n. s.")) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, size = 10, hjust = 1), legend.position="none") 
+  print(plot.bar) 
+}
+
+
+
+
+plotbars(coefs.lh, ROInames, p.values.lh, alpha)
+plotbars(coefs.rh, ROInames, p.values.rh, alpha)
+plotbars(coefs.lh_rh, ROInames, p.values.lh_rh, alpha)
+plotbars(coefs.rh_lh, ROInames, p.values.rh_lh, alpha)
+ylim = c(-1.5, 1.5) # c(-200, 250)
+rr = lapply(seq(NROIS), function(x) doplot_Stockholm(x, tc, tc.data, ylim = ylim, name = ROInames[x], plotit =  min.ps < 2 ))
+ 
+
+```
+
+```{r, dpi=300}
+
+# do combined plot
+# "CerebVIIIa_Left"                "CerebVIIIa_Right"               
+myrois = c("CerebV_Left", "CerebV_Right", "GMPrimarymotorcortexBA4a_Left",  "GMPrimarymotorcortexBA4a_Right", "SMA_Left", "SMA_Right")
+myroisnames = c("CerebV_Left" = "Left cerebellum", 
+                "CerebV_Right" = "Right cerebellum", 
+                "GMPrimarymotorcortexBA4a_Left" = "Left motor cortex",  
+                "GMPrimarymotorcortexBA4a_Right" = "Right motor cortex", 
+                "SMA Left" = "Left SMA",
+                "SMA Right" = "Right SMA")
+
+coefs.melt.lh = melt(coefs.lh)
+coefs.melt.lh$contrast = 'Left hand tracing > baseline'
+coefs.melt.lh$names = ROInames
+coefs.melt.lh$pvals = p.values.lh
+
+coefs.melt.rh = melt(coefs.rh)
+coefs.melt.rh$contrast = 'Right hand tracing > baseline'
+coefs.melt.rh$names = ROInames
+coefs.melt.rh$pvals = p.values.rh
+
+coefs.melt.lh_rh = melt(coefs.lh_rh)
+coefs.melt.lh_rh$contrast = 'Left hand tracing > Right hand tracing'
+coefs.melt.lh_rh$names = ROInames
+coefs.melt.lh_rh$pvals = p.values.lh_rh
+
+
+coefs.melt = rbind(coefs.melt.lh, coefs.melt.rh, coefs.melt.lh_rh)
+s = rep('', length(coefs.melt$pvals))
+s[coefs.melt$pvals < alpha] = '*'
+s[coefs.melt$pvals < alpha/length(myrois)] = '**'
+coefs.melt$signif = paste('p =', round(coefs.melt$pvals, 3), s)
+coefs.melt = subset(coefs.melt, names %in% myrois)
+coefs.melt$roinames = myroisnames[coefs.melt$names]
+
+plot.bar <- ggplot(coefs.melt, aes(x = roinames, y = value, fill = contrast)) + 
+  geom_bar(stat="identity", position = position_dodge(), width = 0.9) + xlab('') + ylab('Group x Time Interaction ') + 
+  geom_text(aes(label = signif), vjust=1.6, hjust = .5, color="black",
+            position = position_dodge(0.9), size=3) + #ylim (-0.05, 0.06) +
+theme_bw() + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, size = 10, hjust = 1)) + 
+scale_fill_brewer(palette="Reds") + 
+theme(legend.position="bottom", legend.title = element_blank(), legend.direction = "vertical", legend.box = "vertical") 
+  
+print(plot.bar) 
+
+```
